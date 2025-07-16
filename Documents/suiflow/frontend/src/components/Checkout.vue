@@ -15,7 +15,7 @@
 
 <script>
 import { registerSlushWallet } from '@mysten/slush-wallet';
-import { TransactionBlock } from '@mysten/sui.js';
+import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 export default {
   data() {
