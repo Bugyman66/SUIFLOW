@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@mysten/slush-wallet": "^0.1.15",
+    "@mysten/sui.js": "^0.54.1",
     "@mysten/wallet-standard": "^0.16.5",
     "@vitejs/plugin-vue": "^6.0.0",
     "axios": "^0.21.1",
