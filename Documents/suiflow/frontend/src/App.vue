@@ -1,5 +1,12 @@
 <template>
-  <div id="app">
+  <div>
+    <nav class="bg-gray-800 text-white px-4 py-3 flex items-center justify-between">
+      <div class="font-bold text-lg">Suiflow</div>
+      <div>
+        <router-link to="/" class="mr-4 hover:underline">Home</router-link>
+        <router-link to="/admin/dashboard" class="hover:underline">Admin Dashboard</router-link>
+      </div>
+    </nav>
     <router-view />
   </div>
 </template>
@@ -11,12 +18,7 @@ export default {
 </script>
 
 <style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
+body {
+  font-family: 'Inter', sans-serif;
 }
 </style>

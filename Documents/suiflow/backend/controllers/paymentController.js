@@ -35,22 +35,29 @@ const getPaymentStatus = async (req, res) => {
 
 const createPaymentLink = async (req, res) => {
     try {
-        const { merchantId, amount, description, reference } = req.body;
-        // Find merchant
-        const merchant = await Merchant.findById(merchantId);
-        if (!merchant) return res.status(404).json({ message: 'Merchant not found' });
-        // Generate unique payment link
-        const paymentLink = `https://suiflow.app/pay/${Math.random().toString(36).substr(2, 9)}`;
+        const { merchantId, amount, description, reference, productId } = req.body;
+        let paymentData = { description, reference };
+        // If productId is provided, fetch product and use its details
+        if (productId) {
+            const Product = (await import('../models/Product.js')).default;
+            const product = await Product.findById(productId);
+            if (!product) return res.status(404).json({ message: 'Product not found' });
+            paymentData.product = product._id;
+            paymentData.amount = product.priceInSui;
+            paymentData.merchantAddress = product.merchantAddress; // Store merchant wallet address
+            paymentData.paymentLink = product.paymentLink;
+        } else {
+            // Find merchant
+            const merchant = await Merchant.findById(merchantId);
+            if (!merchant) return res.status(404).json({ message: 'Merchant not found' });
+            paymentData.merchant = merchant._id;
+            paymentData.amount = amount;
+            paymentData.paymentLink = `https://suiflow.app/pay/${Math.random().toString(36).substr(2, 9)}`;
+        }
         // Create payment record
-        const payment = new Payment({
-            merchant: merchant._id,
-            amount,
-            description,
-            reference,
-            paymentLink
-        });
+        const payment = new Payment(paymentData);
         await payment.save();
-        res.status(201).json({ paymentLink, paymentId: payment._id });
+        res.status(201).json({ paymentLink: payment.paymentLink, paymentId: payment._id });
     } catch (error) {
         res.status(500).json({ message: 'Error creating payment link', error: error.message });
     }
@@ -81,6 +88,14 @@ const verifyPayment = async (req, res) => {
                     createdAt: payment.createdAt
                 });
             }
+            // Redirect if product has redirectURL
+            if (payment.product) {
+                const Product = (await import('../models/Product.js')).default;
+                const product = await Product.findById(payment.product);
+                if (product && product.redirectURL) {
+                    return res.redirect(`${product.redirectURL}?paymentId=${payment._id}`);
+                }
+            }
             res.status(200).json({ message: 'Payment verified', payment });
         } else {
             res.status(400).json({ message: 'Payment verification failed' });
@@ -101,10 +116,20 @@ const webhookHandler = async (req, res) => {
     }
 };
 
+const getAllPayments = async (req, res) => {
+  try {
+    const payments = await Payment.find().populate('product').populate('merchant');
+    res.status(200).json(payments);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching payments', error: error.message });
+  }
+};
+
 // Validation middleware for payment creation
 export const validateCreatePayment = [
-  body('merchantId').notEmpty().withMessage('merchantId is required'),
-  body('amount').isNumeric().withMessage('amount must be a number'),
+  body('productId').optional().isString(),
+  body('merchantId').optional().isString(),
+  body('amount').optional().isNumeric(),
   body('description').optional().isString(),
   body('reference').optional().isString(),
   (req, res, next) => {
@@ -116,4 +141,4 @@ export const validateCreatePayment = [
   }
 ];
 
-export { processPayment, getPaymentStatus, createPaymentLink, verifyPayment, webhookHandler };
+export { processPayment, getPaymentStatus, createPaymentLink, verifyPayment, webhookHandler, getAllPayments };

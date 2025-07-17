@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+  <head><title>Slush Wallet Test</title></head>
+  <body>
+    <h1>Slush Wallet Test</h1>
+    <button onclick="check()">Check Wallet</button>
+
+    <script>
+      function check() {
+        console.log("Slush Wallet:", window.slushWallet);
+        alert(window.slushWallet ? "Injected ✅" : "Not found ❌");
+      }
+    </script>
+  </body>
+</html>

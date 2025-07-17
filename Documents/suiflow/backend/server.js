@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import config from './config.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import productRoutes from './routes/productRoutes.js';
 
 const app = express();
 
@@ -10,6 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api/payments', paymentRoutes);
+app.use('/api/products', productRoutes);
 
 mongoose.connect(config.mongoUri)
   .then(() => {

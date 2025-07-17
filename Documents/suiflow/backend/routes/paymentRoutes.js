@@ -1,5 +1,5 @@
 import express from 'express';
-import { createPaymentLink, verifyPayment, webhookHandler, getPaymentStatus, validateCreatePayment } from '../controllers/paymentController.js';
+import { createPaymentLink, verifyPayment, webhookHandler, getPaymentStatus, validateCreatePayment, getAllPayments } from '../controllers/paymentController.js';
 
 const router = express.Router();
 
@@ -14,5 +14,8 @@ router.post('/webhook', webhookHandler);
 
 // Route to get payment status by ID
 router.get('/:id', getPaymentStatus);
+
+// List all payments
+router.get('/', getAllPayments);
 
 export default router;

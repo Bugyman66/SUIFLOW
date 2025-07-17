@@ -1,7 +1,7 @@
 <template>
   <div class="pay-page">
     <h1>Payment Page</h1>
-    <Checkout />
+    <Checkout :productId="$route.params.productId" />
   </div>
 </template>
 
