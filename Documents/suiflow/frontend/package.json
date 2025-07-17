@@ -1,6 +1,7 @@
 {
   "name": "suiflow-frontend",
   "version": "1.0.0",
+  "type": "module",
   "description": "Frontend for the Suiflow project, providing a user interface for payment processing.",
   "scripts": {
     "dev": "vite",

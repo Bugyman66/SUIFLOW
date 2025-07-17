@@ -9,10 +9,11 @@
       </div>
     </div>
     <div v-if="!walletConnected">
-      <button @click="connectWallet">Connect Martian Wallet</button>
+      <button @click="connectMartianWallet">Connect Martian Wallet</button>
+      <button @click="connectPhantomWallet" style="margin-left: 10px;">Connect Phantom Wallet</button>
     </div>
     <div v-else>
-      <p>Connected wallet: {{ walletAddress }}</p>
+      <p>Connected wallet: {{ walletAddress }} ({{ connectedWalletType }})</p>
       <button @click="sendPayment" :disabled="loading">Pay Now</button>
       <button @click="disconnectWallet" style="margin-left: 10px;">Disconnect Wallet</button>
     </div>
@@ -22,6 +23,7 @@
 </template>
 
 <script>
+import { TransactionBlock } from '@mysten/sui.js/transactions';
 export default {
   props: {
     productId: {
@@ -37,6 +39,8 @@ export default {
       successMessage: '',
       txnHash: '',
       martian: null,
+      phantom: null,
+      connectedWalletType: '',
       product: null,
       paymentId: '',
       loading: false
@@ -58,14 +62,22 @@ export default {
         this.errorMessage = 'Failed to load product.';
       }
     },
-    async connectWallet() {
+    async connectMartianWallet() {
       try {
         const martian = window.martian || window.martianWallet;
         if (!martian) {
           this.errorMessage = 'Martian Wallet not found. Please install Martian Wallet.';
           return;
         }
-        const accounts = await martian.connect();
+        let accounts;
+        if (martian.sui && typeof martian.sui.connect === 'function') {
+          accounts = await martian.sui.connect();
+        } else if (typeof martian.connect === 'function') {
+          accounts = await martian.connect();
+        } else {
+          this.errorMessage = 'Martian Wallet does not support Sui connection.';
+          return;
+        }
         if (!accounts || !accounts.address) {
           this.errorMessage = 'Failed to connect Martian Wallet.';
           return;
@@ -81,6 +93,47 @@ export default {
         this.walletConnected = true;
         this.errorMessage = '';
         this.martian = martian;
+        this.phantom = null;
+        this.connectedWalletType = 'Martian';
+      } catch (error) {
+        this.errorMessage = 'Wallet connection failed.';
+        console.error(error);
+      }
+    },
+    async connectPhantomWallet() {
+      try {
+        const phantom = window.phantom?.sui;
+        console.log('phantom.sui:', phantom);
+        console.log('phantom.sui.connect:', typeof phantom?.connect);
+        console.log('phantom.sui.signAndExecuteTransactionBlock:', typeof phantom?.signAndExecuteTransactionBlock);
+        if (!phantom) {
+          this.errorMessage = 'Phantom Wallet not found. Please install Phantom Wallet.';
+          return;
+        }
+        let accounts;
+        if (typeof phantom.connect === 'function') {
+          accounts = await phantom.connect();
+        } else {
+          this.errorMessage = 'Phantom Wallet does not support Sui connection.';
+          return;
+        }
+        if (!accounts || !accounts.address) {
+          this.errorMessage = 'Failed to connect Phantom Wallet.';
+          return;
+        }
+        if (!this.isValidSuiAddress(accounts.address)) {
+          this.errorMessage = 'Connected address is not a valid Sui address.';
+          this.walletConnected = false;
+          this.walletAddress = '';
+          this.phantom = null;
+          return;
+        }
+        this.walletAddress = accounts.address;
+        this.walletConnected = true;
+        this.errorMessage = '';
+        this.phantom = phantom;
+        this.martian = null;
+        this.connectedWalletType = 'Phantom';
       } catch (error) {
         this.errorMessage = 'Wallet connection failed.';
         console.error(error);
@@ -104,21 +157,27 @@ export default {
           return;
         }
         this.paymentId = paymentData.paymentId;
-        // 2. Send payment transaction
-        const martian = this.martian || window.martian || window.martianWallet;
-        if (!martian || !this.walletConnected) {
-          this.errorMessage = 'Wallet not connected.';
+        // 2. Send payment transaction using Sui TransactionBlock API
+        const amountMist = Math.floor(Number(this.product.priceInSui) * 1_000_000_000);
+        console.log('merchantAddress:', this.product.merchantAddress);
+        console.log('amountMist:', amountMist);
+        const txb = new TransactionBlock();
+        const [coin] = txb.splitCoins(txb.gas, [amountMist]);
+        txb.transferObjects([coin], this.product.merchantAddress);
+        let response;
+        if (this.martian && this.connectedWalletType === 'Martian') {
+          response = await this.martian.sui.signAndExecuteTransactionBlock({
+            transactionBlock: txb,
+          });
+        } else if (this.phantom && this.connectedWalletType === 'Phantom') {
+          response = await this.phantom.signAndExecuteTransactionBlock({
+            transactionBlock: txb,
+          });
+        } else {
+          this.errorMessage = 'No wallet connected.';
           this.loading = false;
           return;
         }
-        const tx = {
-          kind: 'paySui',
-          data: {
-            recipient: this.product.merchantAddress,
-            amount: this.product.priceInSui,
-          },
-        };
-        const response = await martian.signAndSubmitTransaction(tx);
         if (!response || !response.digest) {
           this.errorMessage = 'Payment failed: No transaction hash returned.';
           this.loading = false;
@@ -149,7 +208,7 @@ export default {
           }
         }
       } catch (error) {
-        this.errorMessage = 'Payment failed: ' + (error.message || error.toString());
+        this.errorMessage = 'Payment failed: ' + (error.message || JSON.stringify(error));
       } finally {
         this.loading = false;
       }
@@ -158,7 +217,9 @@ export default {
       this.walletConnected = false;
       this.walletAddress = '';
       this.martian = null;
-        this.successMessage = '';
+      this.phantom = null;
+      this.connectedWalletType = '';
+      this.successMessage = '';
       this.errorMessage = '';
       this.txnHash = '';
       this.paymentId = '';

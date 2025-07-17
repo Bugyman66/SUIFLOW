@@ -17,7 +17,7 @@
           <h2 class="text-lg font-semibold mb-4">Add Product</h2>
           <form @submit.prevent="addProduct">
             <input v-model="newProduct.name" type="text" placeholder="Product Name" class="w-full mb-2 p-2 border rounded" required />
-            <input v-model="newProduct.priceInSui" type="number" placeholder="Price (SUI)" class="w-full mb-2 p-2 border rounded" required />
+            <input v-model="newProduct.priceInSui" type="number" step="0.000001" min="0.000001" placeholder="Price (SUI)" class="w-full mb-2 p-2 border rounded" required />
             <input v-model="newProduct.merchantAddress" type="text" placeholder="Merchant Address" class="w-full mb-2 p-2 border rounded" required />
             <input v-model="newProduct.redirectURL" type="url" placeholder="Redirect URL (optional)" class="w-full mb-2 p-2 border rounded" />
             <textarea v-model="newProduct.description" placeholder="Description" class="w-full mb-2 p-2 border rounded"></textarea>
@@ -42,6 +42,7 @@
             <div class="mt-2 md:mt-0 flex flex-col items-end">
               <button @click="copyLink(product.paymentLink)" class="text-blue-600 underline text-sm mb-1">Copy Pay Link</button>
               <span class="text-xs text-gray-400 break-all">{{ product.paymentLink }}</span>
+              <button @click="openPaymentLinkModal(product)" class="mt-2 bg-indigo-600 text-white px-3 py-1 rounded text-xs">Create Payment Link</button>
             </div>
           </div>
         </div>
@@ -90,6 +91,22 @@
       </transition>
     </div>
   </div>
+  <template v-if="showPaymentLinkModal">
+    <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+      <div class="bg-white p-6 rounded shadow-lg w-full max-w-sm">
+        <h3 class="text-lg font-bold mb-2">Create Payment Link for {{ selectedProduct?.name }}</h3>
+        <input v-model="customPrice" type="number" min="0.000001" step="0.000001" placeholder="Enter custom price in SUI" class="w-full mb-2 p-2 border rounded" />
+        <button @click="createCustomPaymentLink" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 mb-2">Generate Link</button>
+        <button @click="closePaymentLinkModal" class="w-full bg-gray-300 text-gray-800 py-2 rounded">Cancel</button>
+        <div v-if="generatedPaymentLink" class="mt-2">
+          <div class="text-xs text-gray-600 mb-1">Generated Link:</div>
+          <input :value="generatedPaymentLink" readonly class="w-full p-1 border rounded text-xs mb-1" />
+          <button @click="copyLink(generatedPaymentLink)" class="text-blue-600 underline text-xs">Copy</button>
+        </div>
+        <div v-if="customPaymentError" class="text-red-600 text-xs mt-1">{{ customPaymentError }}</div>
+      </div>
+    </div>
+  </template>
 </template>
 
 <script setup>
@@ -110,6 +127,11 @@ const newProduct = ref({
 const products = ref([]);
 const payments = ref([]);
 const copied = ref(false);
+const showPaymentLinkModal = ref(false);
+const selectedProduct = ref(null);
+const customPrice = ref('');
+const generatedPaymentLink = ref('');
+const customPaymentError = ref('');
 
 function login() {
   // Dummy login: any email/password
@@ -165,6 +187,39 @@ function copyLink(link) {
 function formatDate(dateStr) {
   const d = new Date(dateStr);
   return d.toLocaleString();
+}
+function openPaymentLinkModal(product) {
+  selectedProduct.value = product;
+  customPrice.value = '';
+  generatedPaymentLink.value = '';
+  customPaymentError.value = '';
+  showPaymentLinkModal.value = true;
+}
+function closePaymentLinkModal() {
+  showPaymentLinkModal.value = false;
+}
+async function createCustomPaymentLink() {
+  customPaymentError.value = '';
+  generatedPaymentLink.value = '';
+  if (!customPrice.value || isNaN(Number(customPrice.value)) || Number(customPrice.value) <= 0) {
+    customPaymentError.value = 'Please enter a valid price.';
+    return;
+  }
+  try {
+    const res = await fetch('/api/payments/create-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productId: selectedProduct.value._id, customPrice: customPrice.value })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      customPaymentError.value = data.message || 'Failed to create payment link.';
+      return;
+    }
+    generatedPaymentLink.value = data.paymentLink;
+  } catch (e) {
+    customPaymentError.value = 'Failed to create payment link.';
+  }
 }
 onMounted(() => {
   if (isLoggedIn.value) fetchData();

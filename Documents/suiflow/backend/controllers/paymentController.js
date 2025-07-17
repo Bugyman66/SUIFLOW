@@ -125,6 +125,34 @@ const getAllPayments = async (req, res) => {
   }
 };
 
+// Add this new controller for custom price payment links
+const createCustomPaymentLink = async (req, res) => {
+    try {
+        const { productId, customPrice } = req.body;
+        if (!productId || !customPrice) {
+            return res.status(400).json({ message: 'Product ID and custom price are required.' });
+        }
+        const Product = (await import('../models/Product.js')).default;
+        const product = await Product.findById(productId);
+        if (!product) return res.status(404).json({ message: 'Product not found' });
+        // Generate a unique payment link
+        const paymentLink = `https://suiflow.app/pay/${Math.random().toString(36).substr(2, 9)}`;
+        // Create payment record with custom price
+        const payment = new Payment({
+            product: product._id,
+            amount: customPrice,
+            merchantAddress: product.merchantAddress,
+            paymentLink,
+            description: product.description || '',
+            reference: '',
+        });
+        await payment.save();
+        res.status(201).json({ paymentLink, paymentId: payment._id });
+    } catch (error) {
+        res.status(500).json({ message: 'Error creating custom payment link', error: error.message });
+    }
+};
+
 // Validation middleware for payment creation
 export const validateCreatePayment = [
   body('productId').optional().isString(),
@@ -141,4 +169,4 @@ export const validateCreatePayment = [
   }
 ];
 
-export { processPayment, getPaymentStatus, createPaymentLink, verifyPayment, webhookHandler, getAllPayments };
+export { processPayment, getPaymentStatus, createPaymentLink, verifyPayment, webhookHandler, getAllPayments, createCustomPaymentLink };
