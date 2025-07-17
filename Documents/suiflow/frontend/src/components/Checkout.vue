@@ -9,13 +9,14 @@
       </div>
     </div>
     <div v-if="!walletConnected">
-      <button @click="connectMartianWallet">Connect Martian Wallet</button>
-      <button @click="connectPhantomWallet" style="margin-left: 10px;">Connect Phantom Wallet</button>
+      <button v-if="isSuietAvailable" @click="connectSuietWallet">Connect Suiet Wallet</button>
+      <div v-if="!isSuietAvailable" class="text-red-600">Suiet Wallet not found. Please install Suiet Wallet.</div>
     </div>
     <div v-else>
-      <p>Connected wallet: {{ walletAddress }} ({{ connectedWalletType }})</p>
+      <p>Connected wallet: {{ walletAddress }}</p>
       <button @click="sendPayment" :disabled="loading">Pay Now</button>
       <button @click="disconnectWallet" style="margin-left: 10px;">Disconnect Wallet</button>
+      <div class="text-xs mt-2">Connected via: Suiet</div>
     </div>
     <div v-if="errorMessage" class="error">{{ errorMessage }}</div>
     <div v-if="successMessage" class="success">{{ successMessage }}</div>
@@ -23,7 +24,6 @@
 </template>
 
 <script>
-import { TransactionBlock } from '@mysten/sui.js/transactions';
 export default {
   props: {
     productId: {
@@ -38,13 +38,16 @@ export default {
       errorMessage: '',
       successMessage: '',
       txnHash: '',
-      martian: null,
-      phantom: null,
-      connectedWalletType: '',
+      suiet: null,
       product: null,
       paymentId: '',
-      loading: false
+      loading: false,
     };
+  },
+  computed: {
+    isSuietAvailable() {
+      return !!window.suiet;
+    }
   },
   async mounted() {
     await this.fetchProduct();
@@ -62,78 +65,30 @@ export default {
         this.errorMessage = 'Failed to load product.';
       }
     },
-    async connectMartianWallet() {
+    async connectSuietWallet() {
       try {
-        const martian = window.martian || window.martianWallet;
-        if (!martian) {
-          this.errorMessage = 'Martian Wallet not found. Please install Martian Wallet.';
+        const suiet = window.suiet;
+        if (!suiet) {
+          this.errorMessage = 'Suiet Wallet not found. Please install Suiet Wallet.';
           return;
         }
-        let accounts;
-        if (martian.sui && typeof martian.sui.connect === 'function') {
-          accounts = await martian.sui.connect();
-        } else if (typeof martian.connect === 'function') {
-          accounts = await martian.connect();
-        } else {
-          this.errorMessage = 'Martian Wallet does not support Sui connection.';
+        await suiet.connect();
+        const address = suiet.account?.address;
+        if (!address) {
+          this.errorMessage = 'Failed to connect Suiet Wallet.';
           return;
         }
-        if (!accounts || !accounts.address) {
-          this.errorMessage = 'Failed to connect Martian Wallet.';
-          return;
-        }
-        if (!this.isValidSuiAddress(accounts.address)) {
+        if (!this.isValidSuiAddress(address)) {
           this.errorMessage = 'Connected address is not a valid Sui address.';
           this.walletConnected = false;
           this.walletAddress = '';
-          this.martian = null;
+          this.suiet = null;
           return;
         }
-        this.walletAddress = accounts.address;
+        this.walletAddress = address;
         this.walletConnected = true;
         this.errorMessage = '';
-        this.martian = martian;
-        this.phantom = null;
-        this.connectedWalletType = 'Martian';
-      } catch (error) {
-        this.errorMessage = 'Wallet connection failed.';
-        console.error(error);
-      }
-    },
-    async connectPhantomWallet() {
-      try {
-        const phantom = window.phantom?.sui;
-        console.log('phantom.sui:', phantom);
-        console.log('phantom.sui.connect:', typeof phantom?.connect);
-        console.log('phantom.sui.signAndExecuteTransactionBlock:', typeof phantom?.signAndExecuteTransactionBlock);
-        if (!phantom) {
-          this.errorMessage = 'Phantom Wallet not found. Please install Phantom Wallet.';
-          return;
-        }
-        let accounts;
-        if (typeof phantom.connect === 'function') {
-          accounts = await phantom.connect();
-        } else {
-          this.errorMessage = 'Phantom Wallet does not support Sui connection.';
-          return;
-        }
-        if (!accounts || !accounts.address) {
-          this.errorMessage = 'Failed to connect Phantom Wallet.';
-          return;
-        }
-        if (!this.isValidSuiAddress(accounts.address)) {
-          this.errorMessage = 'Connected address is not a valid Sui address.';
-          this.walletConnected = false;
-          this.walletAddress = '';
-          this.phantom = null;
-          return;
-        }
-        this.walletAddress = accounts.address;
-        this.walletConnected = true;
-        this.errorMessage = '';
-        this.phantom = phantom;
-        this.martian = null;
-        this.connectedWalletType = 'Phantom';
+        this.suiet = suiet;
       } catch (error) {
         this.errorMessage = 'Wallet connection failed.';
         console.error(error);
@@ -157,27 +112,25 @@ export default {
           return;
         }
         this.paymentId = paymentData.paymentId;
-        // 2. Send payment transaction using Sui TransactionBlock API
-        const amountMist = Math.floor(Number(this.product.priceInSui) * 1_000_000_000);
-        console.log('merchantAddress:', this.product.merchantAddress);
-        console.log('amountMist:', amountMist);
-        const txb = new TransactionBlock();
-        const [coin] = txb.splitCoins(txb.gas, [amountMist]);
-        txb.transferObjects([coin], this.product.merchantAddress);
-        let response;
-        if (this.martian && this.connectedWalletType === 'Martian') {
-          response = await this.martian.sui.signAndExecuteTransactionBlock({
-            transactionBlock: txb,
-          });
-        } else if (this.phantom && this.connectedWalletType === 'Phantom') {
-          response = await this.phantom.signAndExecuteTransactionBlock({
-            transactionBlock: txb,
-          });
-        } else {
-          this.errorMessage = 'No wallet connected.';
+        // 2. Send payment transaction
+        const suiet = this.suiet || window.suiet;
+        if (!suiet || !this.walletConnected) {
+          this.errorMessage = 'Suiet Wallet not connected.';
           this.loading = false;
           return;
         }
+        // Suiet expects a TransactionBlock, so you may need to adjust this for production
+        const tx = {
+          kind: 'paySui',
+          data: {
+            recipient: this.product.merchantAddress,
+            amount: this.product.priceInSui,
+          },
+        };
+        const response = await suiet.signAndExecuteTransactionBlock({
+          transactionBlock: tx,
+          options: { showEffects: true },
+        });
         if (!response || !response.digest) {
           this.errorMessage = 'Payment failed: No transaction hash returned.';
           this.loading = false;
@@ -208,7 +161,7 @@ export default {
           }
         }
       } catch (error) {
-        this.errorMessage = 'Payment failed: ' + (error.message || JSON.stringify(error));
+        this.errorMessage = 'Payment failed: ' + (error.message || error.toString());
       } finally {
         this.loading = false;
       }
@@ -216,9 +169,7 @@ export default {
     disconnectWallet() {
       this.walletConnected = false;
       this.walletAddress = '';
-      this.martian = null;
-      this.phantom = null;
-      this.connectedWalletType = '';
+      this.suiet = null;
       this.successMessage = '';
       this.errorMessage = '';
       this.txnHash = '';

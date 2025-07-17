@@ -1,26 +1,18 @@
 {
-  "name": "suiflow-frontend",
-  "version": "1.0.0",
-  "type": "module",
-  "description": "Frontend for the Suiflow project, providing a user interface for payment processing.",
+  "name": "frontend",
+  "version": "0.0.0",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview"
   },
   "dependencies": {
-    "@mysten/slush-wallet": "^0.1.15",
-    "@mysten/sui.js": "^0.54.1",
-    "@mysten/wallet-standard": "^0.16.5",
-    "@vitejs/plugin-vue": "^6.0.0",
-    "axios": "^0.21.1",
-    "vue": "^3.2.0",
-    "vue-router": "^4.0.0"
+    "@mysten/sui.js": "^0.38.0",
+    "@suiet/wallet-kit": "^0.5.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "vite": "^7.0.4",
-    "vue-loader": "^16.0.0"
-  },
-  "author": "Your Name",
-  "license": "MIT"
+    "vite": "^4.0.0"
+  }
 }
