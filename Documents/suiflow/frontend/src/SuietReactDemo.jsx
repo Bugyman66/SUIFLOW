@@ -1,6 +1,7 @@
 import React from 'react';
 import { WalletProvider, ConnectButton, useWallet } from '@suiet/wallet-kit';
 import '@suiet/wallet-kit/style.css';
+import './SuietReactDemo.css'; // Import the CSS
 
 function PaymentDemo() {
   const wallet = useWallet();
@@ -19,14 +20,14 @@ function PaymentDemo() {
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: '40px auto', padding: 24, border: '1px solid #eee', borderRadius: 8 }}>
+    <div className="demo-container">
       <h2>Suiet React Demo</h2>
       <ConnectButton />
       {wallet.connected && (
-        <div style={{ marginTop: 16 }}>
+        <div className="wallet-info">
           <div>Wallet: {wallet.name}</div>
           <div>Address: {wallet.account?.address}</div>
-          <button onClick={handlePay} style={{ marginTop: 16, padding: '8px 16px' }}>
+          <button onClick={handlePay} className="pay-button">
             Pay Now
           </button>
         </div>
@@ -41,4 +42,4 @@ export default function SuietReactDemo() {
       <PaymentDemo />
     </WalletProvider>
   );
-} 
+}
