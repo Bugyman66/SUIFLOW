@@ -4,6 +4,8 @@ import cors from 'cors';
 import config from './config.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import productRoutes from './routes/productRoutes.js';
+import authRoutes from './routes/authRoutes.js';
+import debugRoutes from './routes/debugRoutes.js';
 
 const app = express();
 
@@ -20,8 +22,10 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/api/auth', authRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api', debugRoutes); // Add debug routes
 
 mongoose.connect(config.mongoUri)
   .then(() => {

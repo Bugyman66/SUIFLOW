@@ -48,12 +48,22 @@ function CheckoutContent({ productId }) {
       }
       const paymentId = paymentData.paymentId;
 
+      // Create proper SUI transfer transaction
       const txb = new TransactionBlock();
-      txb.transferObjects(
-        [txb.gas],
-        txb.pure(product.merchantAddress, 'address')
-      );
+      
+      // Convert SUI to MIST (1 SUI = 1,000,000,000 MIST)
+      const amountInMist = Math.floor(parseFloat(product.priceInSui) * 1_000_000_000);
+      
+      console.log(`Transferring ${product.priceInSui} SUI (${amountInMist} MIST) to ${product.merchantAddress}`);
+      
+      // Split coins to get the exact amount
+      const [coin] = txb.splitCoins(txb.gas, [txb.pure(amountInMist)]);
+      
+      // Transfer the coin to merchant
+      txb.transferObjects([coin], txb.pure(product.merchantAddress, 'address'));
+      
       txb.setGasBudget(100_000_000);
+      
       const response = await wallet.signAndExecuteTransactionBlock({
         transactionBlock: txb,
         options: { showEffects: true },
@@ -94,7 +104,7 @@ function CheckoutContent({ productId }) {
           <div className="product-details">
             <div><b>{product.name}</b></div>
             <div>{product.description}</div>
-            <div>Price: <b>{product.priceInSui} SUI</b></div>
+            <div>Price: <b>{parseFloat(product.priceInSui).toFixed(4)} SUI</b></div>
             <div className="merchant-info">Merchant: {product.merchantAddress}</div>
           </div>
           <ConnectButton />

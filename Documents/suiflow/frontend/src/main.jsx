@@ -1,77 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import ReactPayPage from './ReactPayPage';
 import AdminDashboard from './AdminDashboard';
+import AuthWrapper from './components/AuthWrapper';
+import authService from './services/authService';
 import './main.css';
 
 function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(localStorage.getItem('adminLoggedIn') === 'true');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    if (email && password) {
-      localStorage.setItem('adminLoggedIn', 'true');
-      setIsLoggedIn(true);
-      setError('');
-      navigate('/admin/dashboard');
-    } else {
-      setError('Please enter email and password.');
-    }
+  useEffect(() => {
+    // Check if user is already authenticated
+    const checkAuth = async () => {
+      if (authService.isAuthenticated()) {
+        try {
+          await authService.getProfile();
+          setIsAuthenticated(true);
+          navigate('/admin/dashboard');
+        } catch (error) {
+          // Token is invalid, clear it
+          authService.logout();
+          setIsAuthenticated(false);
+        }
+      }
+      setLoading(false);
+    };
+
+    checkAuth();
+  }, [navigate]);
+
+  const handleAuthSuccess = (result) => {
+    setIsAuthenticated(true);
+    navigate('/admin/dashboard');
   };
 
-  return (
-    <div className="home-wrapper">
-      <div className="home-card">
-        <h1 className="home-title">Welcome to Suiflow</h1>
-        <p className="home-description">
-          Suiflow is a blockchain-based payment platform. Merchants can create products, generate payment links, and track payments. Customers can pay securely using Suiet Wallet.
-        </p>
-        {!isLoggedIn ? (
-          <form onSubmit={handleLogin}>
-            <input
-              type="email"
-              placeholder="Admin Email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className="input"
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="input"
-            />
-            <button type="submit" className="login-button">
-              Login to Admin Dashboard
-            </button>
-            {error && <div className="error-text">{error}</div>}
-          </form>
-        ) : (
-          <button onClick={() => navigate('/admin/dashboard')} className="login-button">
-            Go to Admin Dashboard
-          </button>
-        )}
-        <div className="how-it-works">
-          <b>How it works:</b>
-          <ul className="how-it-works-list">
-            <li>Admins can add products and generate payment links.</li>
-            <li>Customers pay using Suiet Wallet via the payment link.</li>
-            <li>Payments are auto-verified on-chain and tracked in the dashboard.</li>
-            <li>Embed Suiflow checkout on any site using the JS SDK.</li>
-          </ul>
-        </div>
-        <div className="help-text">
-          Need help? See the <a href="/docs/api-docs.md" target="_blank" rel="noopener noreferrer">API Docs</a> or contact support.
+  const handleLogout = () => {
+    authService.logout();
+    setIsAuthenticated(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return (
+      <div className="home-wrapper">
+        <div className="home-card">
+          <h1 className="home-title">Welcome to Suiflow</h1>
+          <p>You are logged in. Redirecting to dashboard...</p>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return <AuthWrapper onAuthSuccess={handleAuthSuccess} />;
 }
 
 ReactDOM.createRoot(document.getElementById('app')).render(
