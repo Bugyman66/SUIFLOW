@@ -5,21 +5,33 @@ dotenv.config();
 export const createProduct = async (req, res) => {
   try {
     const { name, description, priceInSui, merchantAddress, redirectURL } = req.body;
+    
+    // Validate and convert price
+    const price = parseFloat(priceInSui);
+    if (isNaN(price) || price <= 0) {
+      return res.status(400).json({ message: 'Invalid price. Price must be a positive number.' });
+    }
+    
     // Use a placeholder for paymentLink initially
     const product = new Product({
       name,
       description,
-      priceInSui,
+      priceInSui: price, // Use the validated number
       merchantAddress,
       redirectURL,
       paymentLink: 'placeholder'
     });
+    
     await product.save();
+    
     const frontendBaseUrl = process.env.FRONTEND_BASE_URL || 'http://localhost:5173';
     product.paymentLink = `${frontendBaseUrl}/pay/${product._id}`;
     await product.save();
+    
+    console.log('Product created:', { name, priceInSui: price, merchantAddress });
     res.status(201).json(product);
   } catch (error) {
+    console.error('Error creating product:', error);
     res.status(500).json({ message: 'Error creating product', error: error.message });
   }
 };

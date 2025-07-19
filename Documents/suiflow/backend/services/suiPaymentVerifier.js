@@ -36,19 +36,57 @@ class SuiPaymentVerifier {
 }
 
 // TODO: Implement Sui blockchain payment verification logic
-export const verifySuiPayment = async (txnHash, expectedAmount, merchantAddress) => {
+export const verifySuiPayment = async (txnHash, expectedAmountSui, merchantAddress) => {
   try {
-    const txn = await suiClient.getTransactionBlock({ digest: txnHash });
+    console.log(`Verifying transaction: ${txnHash}`);
+    console.log(`Expected amount: ${expectedAmountSui} SUI`);
+    console.log(`Expected recipient: ${merchantAddress}`);
+    
+    const txn = await suiClient.getTransactionBlock({ 
+      digest: txnHash,
+      options: { showBalanceChanges: true, showEffects: true }
+    });
+    
     // Check if transaction exists and was successful
-    if (!txn || txn.effects.status.status !== 'success') return false;
-    // Check recipient and amount (simplified, adjust for your contract logic)
-    const recipient = txn.transaction.data.transactions[0]?.recipient;
-    const amount = txn.transaction.data.transactions[0]?.amount;
-    if (recipient !== merchantAddress) return false;
-    if (Number(amount) < Number(expectedAmount)) return false;
+    if (!txn || txn.effects.status.status !== 'success') {
+      console.log('Transaction not found or failed');
+      return false;
+    }
+    
+    // Convert expected amount to MIST for comparison
+    const expectedAmountMist = Math.floor(parseFloat(expectedAmountSui) * 1_000_000_000);
+    
+    // Check balance changes to verify the payment
+    const balanceChanges = txn.balanceChanges || [];
+    
+    // Look for a positive balance change for the merchant address
+    const merchantBalanceChange = balanceChanges.find(change => 
+      change.owner === merchantAddress && 
+      change.coinType === '0x2::sui::SUI' &&
+      parseInt(change.amount) > 0
+    );
+    
+    if (!merchantBalanceChange) {
+      console.log('No positive balance change found for merchant');
+      return false;
+    }
+    
+    const receivedAmount = parseInt(merchantBalanceChange.amount);
+    console.log(`Received amount: ${receivedAmount} MIST (${receivedAmount / 1_000_000_000} SUI)`);
+    
+    // Allow for small differences due to gas costs
+    const tolerance = 1_000_000; // 0.001 SUI tolerance
+    const amountDifference = Math.abs(receivedAmount - expectedAmountMist);
+    
+    if (amountDifference > tolerance) {
+      console.log(`Amount mismatch: expected ${expectedAmountMist}, received ${receivedAmount}`);
+      return false;
+    }
+    
+    console.log('Payment verification successful');
     return true;
   } catch (error) {
-    console.error('Sui verification error:', error.message);
+    console.error('Sui verification error:', error);
     return false;
   }
 };
