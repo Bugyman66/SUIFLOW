@@ -1,3 +1,14 @@
+<<<<<<< HEAD
+/* Main wrapper for the home screen */
+.home-wrapper {
+  min-height: 95vh;
+  width: 100%;
+  background: url(/src/res/background.jpg) no-repeat center center fixed;
+  background-size: cover;
+  display: flex;
+  flex-direction: row;
+  padding: 10px;
+=======
 /* Loading styles */
 .loading-container {
   min-height: 100vh;
@@ -39,76 +50,110 @@
   background: #fff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   font-family: 'Segoe UI', sans-serif;
+>>>>>>> ed02efd347b69256fd68e295289744d4bbc66f37
 }
 
-/* Product Details Section */
-.product-details {
+.logo {
+    margin-left: 150px;
+}
+
+/* Main card container */
+.home-card {
+  max-width: 600px;
+  width: 100%;
+   min-height: 95vh;
+  background: #ffffff;
+  padding: 32px;
+  border-radius: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Title text */
+.home-title {
+  text-align: center;
+  font-size: 24px;
+  font-weight: bold;
   margin-bottom: 16px;
-  line-height: 1.4;
 }
 
-.product-details b {
-  font-size: 18px;
+/* Description paragraph */
+.home-description {
+  text-align: center;
+  margin-bottom: 24px;
+  font-size: 15px;
+  color: #555;
+  line-height: 1.5;
 }
 
-.merchant-info {
-  font-size: 12px;
-  color: #6b7280; /* Tailwind gray-500 */
-  margin-top: 4px;
+/* Input fields */
+.input {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  font-size: 15px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
 
-/* Wallet Info Section */
-.wallet-info {
-  margin-top: 16px;
-  font-size: 14px;
-  word-break: break-word;
+.input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  outline: none;
 }
 
-/* Payment Button */
-.pay-button {
-  margin-top: 16px;
-  padding: 10px 16px;
-  background: #2563eb;
+.input:hover {
+  border-color: #999;
+}
+
+/* Login button */
+.login-button {
+  width: 100%;
+  background-color: #2563eb;
   color: #fff;
+  padding: 10px 0;
+  font-size: 15px;
+  font-weight: bold;
   border: none;
   border-radius: 6px;
-  font-weight: bold;
-  font-size: 14px;
   cursor: pointer;
-  transition: background 0.2s ease-in-out;
+  transition: background-color 0.2s ease-in-out;
 }
 
-.pay-button:hover {
-  background: #1d4ed8;
+.login-button:hover {
+  background-color: #1d4ed8;
 }
 
-.pay-button:disabled {
-  background: #93c5fd; /* Tailwind blue-300 */
-  cursor: not-allowed;
-}
-
-/* Feedback Text */
+/* Error text */
 .error-text {
-  color: #dc2626; /* Tailwind red-600 */
-  margin-top: 12px;
+  color: #dc2626;
   font-size: 14px;
+  margin-top: 8px;
 }
 
-.success-text {
-  color: #16a34a; /* Tailwind green-600 */
-  margin-top: 12px;
+/* How it works section */
+.how-it-works {
+  margin-top: 32px;
   font-size: 14px;
+  color: #333;
 }
 
-/* Transaction Hash Display */
-.txn-hash {
+.how-it-works-list {
   margin-top: 10px;
-  font-size: 13px;
-  color: #374151; /* Tailwind gray-700 */
-  word-break: break-word;
+  padding-left: 20px;
+  line-height: 1.6;
+  color: #555;
 }
 
-.txn-hash span {
-  font-weight: 500;
+/* Help/Support text */
+.help-text {
+  margin-top: 24px;
+  font-size: 13px;
+  color: #888;
+  text-align: center;
+}
+
+.help-text a {
   color: #2563eb;
+  text-decoration: underline;
 }
