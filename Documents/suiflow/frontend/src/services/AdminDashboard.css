@@ -1,6 +1,7 @@
 .dashboard-wrapper {
   min-height: 100vh;
-  background: #f8fafc;
+  background: url(/src/res/background.jpg) no-repeat center center fixed;
+  background-size: cover;
   padding: 24px;
 }
 

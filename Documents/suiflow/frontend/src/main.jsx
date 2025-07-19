@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
+import img01 from './res/logo.png'
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import ReactPayPage from './ReactPayPage';
 import AdminDashboard from './AdminDashboard';
 import './main.css';
 
 function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(localStorage.getItem('adminLoggedIn') === 'true');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = (e) => {
@@ -69,6 +70,9 @@ function Home() {
         <div className="help-text">
           Need help? See the <a href="/docs/api-docs.md" target="_blank" rel="noopener noreferrer">API Docs</a> or contact support.
         </div>
+      </div>
+      <div>
+        <img src={img01} className='logo'/>
       </div>
     </div>
   );
