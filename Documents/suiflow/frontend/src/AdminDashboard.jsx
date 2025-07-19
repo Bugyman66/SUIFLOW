@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import authService from './services/authService';
 import './services/AdminDashboard.css';
 
 export default function AdminDashboard() {
   const [products, setProducts] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [merchant, setMerchant] = useState(null);
   const [newProduct, setNewProduct] = useState({
     name: '',
     priceInSui: '',
@@ -14,23 +17,80 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [productError, setProductError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchData();
+    checkAuthentication();
   }, []);
 
+  async function checkAuthentication() {
+    if (!authService.isAuthenticated()) {
+      navigate('/');
+      return;
+    }
+
+    try {
+      const profileData = await authService.getProfile();
+      setMerchant(profileData.merchant);
+      await fetchData();
+    } catch (error) {
+      console.error('Authentication failed:', error);
+      authService.logout();
+      navigate('/');
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  const handleLogout = () => {
+    authService.logout();
+    navigate('/');
+  };
+
+  useEffect(() => {
+    if (merchant) {
+      fetchData();
+    }
+  }, [merchant]);
+
   async function fetchData() {
+    if (!merchant) return;
     await Promise.all([fetchProducts(), fetchPayments()]);
   }
 
   async function fetchProducts() {
-    const res = await fetch('/api/products');
-    setProducts(await res.json());
+    try {
+      const token = authService.getToken();
+      const res = await fetch('/api/products', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (res.ok) {
+        setProducts(await res.json());
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
   }
 
   async function fetchPayments() {
-    const res = await fetch('/api/payments');
-    setPayments(await res.json());
+    try {
+      const token = authService.getToken();
+      const res = await fetch('/api/payments', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (res.ok) {
+        setPayments(await res.json());
+      }
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+    }
   }
 
   async function addProduct(e) {
@@ -38,18 +98,37 @@ export default function AdminDashboard() {
     setLoading(true);
     setProductError('');
     try {
+      const token = authService.getToken();
+      const productData = {
+        ...newProduct,
+        priceInSui: parseFloat(newProduct.priceInSui), // Ensure it's a number
+        merchantAddress: merchant.walletAddress // Use authenticated merchant's wallet
+      };
+      
+      // Validate price
+      if (isNaN(productData.priceInSui) || productData.priceInSui <= 0) {
+        setProductError('Please enter a valid price greater than 0');
+        setLoading(false);
+        return;
+      }
+      
       const res = await fetch('/api/products', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProduct)
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(productData)
       });
+      
       if (!res.ok) {
         const data = await res.json();
         setProductError(data.message || 'Failed to add product.');
         setLoading(false);
         return;
       }
-      setNewProduct({ name: '', priceInSui: '', merchantAddress: '', description: '', redirectURL: '' });
+      
+      setNewProduct({ name: '', priceInSui: '', description: '', redirectURL: '' });
       await fetchProducts();
     } catch (e) {
       setProductError('Failed to add product.');
@@ -80,11 +159,34 @@ export default function AdminDashboard() {
     window.location.href = '/';
   }
 
+  if (authLoading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!merchant) {
+    return (
+      <div className="loading-container">
+        <p>Redirecting to login...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard-wrapper">
       <div className="dashboard-header">
-        <h1 className="dashboard-title">Admin Dashboard</h1>
-        <button onClick={logout} className="logout-button">Logout</button>
+        <div className="header-left">
+          <h1 className="dashboard-title">Admin Dashboard</h1>
+          <p className="merchant-welcome">Welcome, {merchant.businessName}</p>
+        </div>
+        <div className="header-right">
+          <span className="merchant-email">{merchant.email}</span>
+          <button onClick={handleLogout} className="logout-button">Logout</button>
+        </div>
       </div>
 
       <div className="dashboard-grid">
@@ -92,8 +194,20 @@ export default function AdminDashboard() {
           <h2 className="card-title">Add Product</h2>
           <form onSubmit={addProduct}>
             <input value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} type="text" placeholder="Product Name" className="input" required />
-            <input value={newProduct.priceInSui} onChange={e => setNewProduct(p => ({ ...p, priceInSui: e.target.value }))} type="number" placeholder="Price (SUI)" className="input" required />
-            <input value={newProduct.merchantAddress} onChange={e => setNewProduct(p => ({ ...p, merchantAddress: e.target.value }))} type="text" placeholder="Merchant Address" className="input" required />
+            <input 
+              value={newProduct.priceInSui} 
+              onChange={e => setNewProduct(p => ({ ...p, priceInSui: e.target.value }))} 
+              type="number" 
+              step="0.01" 
+              min="0.01"
+              placeholder="Price (SUI)" 
+              className="input" 
+              required 
+            />
+            <div className="merchant-address-display">
+              <label>Merchant Wallet Address:</label>
+              <span>{merchant.walletAddress}</span>
+            </div>
             <input value={newProduct.redirectURL} onChange={e => setNewProduct(p => ({ ...p, redirectURL: e.target.value }))} type="url" placeholder="Redirect URL (optional)" className="input" />
             <textarea value={newProduct.description} onChange={e => setNewProduct(p => ({ ...p, description: e.target.value }))} placeholder="Description" className="textarea" />
             <button type="submit" className="submit-button" disabled={loading}>
@@ -111,7 +225,7 @@ export default function AdminDashboard() {
               <div>
                 <div className="product-name">{product.name}</div>
                 <div className="product-description">{product.description}</div>
-                <div className="product-price">Price: <b>{product.priceInSui} SUI</b></div>
+                <div className="product-price">Price: <b>{parseFloat(product.priceInSui).toFixed(4)} SUI</b></div>
                 <div className="product-merchant">Merchant: {product.merchantAddress}</div>
               </div>
               <div className="product-actions">
