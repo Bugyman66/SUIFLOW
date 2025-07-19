@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { WalletProvider, ConnectButton, useWallet } from '@suiet/wallet-kit';
 import '@suiet/wallet-kit/style.css';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
+import './Checkout.css';
 
 function CheckoutContent({ productId }) {
   const wallet = useWallet();
@@ -34,7 +35,6 @@ function CheckoutContent({ productId }) {
     setError('');
     setSuccess('');
     try {
-      // 1. Create payment entry
       const paymentRes = await fetch('/api/payments/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -47,14 +47,13 @@ function CheckoutContent({ productId }) {
         return;
       }
       const paymentId = paymentData.paymentId;
-      // 2. Send payment transaction using TransactionBlock
+
       const txb = new TransactionBlock();
-      // SUI uses 1e9 (1_000_000_000) for 1 SUI, so priceInSui should be in octas
       txb.transferObjects(
         [txb.gas],
         txb.pure(product.merchantAddress, 'address')
       );
-      txb.setGasBudget(100_000_000); // adjust as needed
+      txb.setGasBudget(100_000_000);
       const response = await wallet.signAndExecuteTransactionBlock({
         transactionBlock: txb,
         options: { showEffects: true },
@@ -65,7 +64,6 @@ function CheckoutContent({ productId }) {
         return;
       }
       setTxnHash(response.digest);
-      // 3. Notify backend for verification
       await fetch(`/api/payments/${paymentId}/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -75,11 +73,9 @@ function CheckoutContent({ productId }) {
         }),
       });
       setSuccess('Payment sent! Txn Hash: ' + response.digest);
-      // Notify parent window (for SDK)
       if (window.parent !== window) {
         window.parent.postMessage({ suiflowSuccess: true, txHash: response.digest }, '*');
       }
-      // Optionally redirect if product.redirectURL exists
       if (product.redirectURL) {
         window.location.href = `${product.redirectURL}?paymentId=${paymentId}`;
       }
@@ -91,22 +87,22 @@ function CheckoutContent({ productId }) {
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: '40px auto', padding: 24, border: '1px solid #eee', borderRadius: 8, background: '#fff' }}>
+    <div className="checkout-wrapper">
       <h2>Suiflow Checkout</h2>
       {product ? (
         <>
-          <div style={{ marginBottom: 16 }}>
+          <div className="product-details">
             <div><b>{product.name}</b></div>
             <div>{product.description}</div>
             <div>Price: <b>{product.priceInSui} SUI</b></div>
-            <div className="text-xs text-gray-500">Merchant: {product.merchantAddress}</div>
+            <div className="merchant-info">Merchant: {product.merchantAddress}</div>
           </div>
           <ConnectButton />
           {wallet.connected && (
-            <div style={{ marginTop: 16 }}>
+            <div className="wallet-info">
               <div>Wallet: {wallet.name}</div>
               <div>Address: {wallet.account?.address}</div>
-              <button onClick={handlePay} style={{ marginTop: 16, padding: '8px 16px' }} disabled={loading}>
+              <button onClick={handlePay} className="pay-button" disabled={loading}>
                 {loading ? 'Processing...' : 'Pay Now'}
               </button>
             </div>
@@ -115,11 +111,11 @@ function CheckoutContent({ productId }) {
       ) : (
         <div>Loading product...</div>
       )}
-      {error && <div style={{ color: 'red', marginTop: 12 }}>{error}</div>}
-      {success && <div style={{ color: 'green', marginTop: 12 }}>{success}</div>}
+      {error && <div className="error-text">{error}</div>}
+      {success && <div className="success-text">{success}</div>}
       {txnHash && (
-        <div style={{ marginTop: 8, fontSize: 12 }}>
-          Txn Hash: <span style={{ wordBreak: 'break-all' }}>{txnHash}</span>
+        <div className="txn-hash">
+          Txn Hash: <span>{txnHash}</span>
         </div>
       )}
     </div>
@@ -132,4 +128,4 @@ export default function ReactCheckout({ productId }) {
       <CheckoutContent productId={productId} />
     </WalletProvider>
   );
-} 
+}

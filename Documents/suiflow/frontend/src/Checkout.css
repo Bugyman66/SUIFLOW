@@ -1,0 +1,55 @@
+/* Checkout.css */
+
+.checkout-wrapper {
+  max-width: 400px;
+  margin: 40px auto;
+  padding: 24px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.product-details {
+  margin-bottom: 16px;
+}
+
+.merchant-info {
+  font-size: 12px;
+  color: #6b7280; /* Tailwind's gray-500 */
+}
+
+.wallet-info {
+  margin-top: 16px;
+}
+
+.pay-button {
+  margin-top: 16px;
+  padding: 8px 16px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.pay-button:disabled {
+  background: #93c5fd; /* Tailwind's blue-300 */
+  cursor: not-allowed;
+}
+
+.error-text {
+  color: red;
+  margin-top: 12px;
+}
+
+.success-text {
+  color: green;
+  margin-top: 12px;
+}
+
+.txn-hash {
+  margin-top: 8px;
+  font-size: 12px;
+  word-break: break-word;
+}
