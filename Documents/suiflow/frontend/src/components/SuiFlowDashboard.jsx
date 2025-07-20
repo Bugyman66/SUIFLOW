@@ -150,9 +150,14 @@ const SuiFlowDashboard = () => {
   async function fetchPayments() {
     try {
       const token = authService.getToken();
-      console.log('Fetching payments with token:', token ? 'Token exists' : 'No token');
+      if (!token) {
+        console.error('No authentication token available');
+        return;
+      }
+      console.log('Fetching payments with token:', token.substring(0, 10) + '...');
+      console.log('Current payments state:', payments);
       
-      const res = await fetch('http://localhost:4000/api/payments', {
+      const res = await fetch('http://localhost:4000/api/payments/merchant/payments', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -164,15 +169,38 @@ const SuiFlowDashboard = () => {
       if (res.ok) {
         const paymentsData = await res.json();
         console.log('Payments data received:', paymentsData);
+        
+        if (!Array.isArray(paymentsData)) {
+          console.error('Expected array of payments but got:', typeof paymentsData);
+          return;
+        }
+        
         console.log('Number of payments:', paymentsData.length);
-        console.log('Payment statuses:', paymentsData.map(p => ({ id: p._id, status: p.status, amount: p.amountInSui })));
+        console.log('Payment statuses:', paymentsData.map(p => ({ 
+          id: p._id, 
+          status: p.status, 
+          amount: p.amountInSui,
+          merchant: p.merchant?._id 
+        })));
+        
         setPayments(paymentsData);
+        console.log('Updated payments state:', paymentsData);
       } else {
         const errorData = await res.json().catch(() => ({}));
         console.error('Payments API error:', errorData);
+        console.error('HTTP Status:', res.status);
+        
+        if (res.status === 401) {
+          console.error('Authentication failed. Redirecting to login...');
+          authService.logout();
+          navigate('/');
+        }
       }
     } catch (error) {
       console.error('Error fetching payments:', error);
+      if (error.message.includes('Failed to fetch')) {
+        console.error('Network error - Is the backend server running?');
+      }
     }
   }
 
@@ -509,6 +537,7 @@ const SuiFlowDashboard = () => {
 
           {activeTab === 'transactions' && (
             <div className="sui-transactions-section">
+              {console.log('Rendering transactions tab, payments:', payments)}
               <div className="sui-transactions-header">
                 <h3>Transaction History</h3>
                 <div className="sui-transactions-stats">

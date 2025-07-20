@@ -169,20 +169,62 @@ const webhookHandler = async (req, res) => {
 
 const getAllPayments = async (req, res) => {
   try {
+    console.log('getAllPayments called with req.merchant:', req.merchant);
+    
     // Get the authenticated merchant from the request (set by auth middleware)
     const merchantId = req.merchant?._id;
+    const merchant = req.merchant;
     
     if (!merchantId) {
-      return res.status(401).json({ message: 'Merchant not authenticated' });
+      console.log('No merchant ID found in request');
+      return res.status(401).json({ 
+        message: 'Merchant not authenticated',
+        debug: { 
+          merchantPresent: !!req.merchant,
+          authHeader: req.headers.authorization ? 'Present' : 'Missing'
+        }
+      });
     }
     
-    // Filter payments by merchant
-    const payments = await Payment.find({ merchant: merchantId })
-      .populate('product')
-      .populate('merchant')
-      .sort({ createdAt: -1 }); // Most recent first
+    console.log('Getting payments for merchant:', merchantId);
+    console.log('Merchant wallet address:', merchant.walletAddress);
+    
+    // First check if the merchant exists in any payments
+    const totalPayments = await Payment.countDocuments();
+    console.log('Total payments in database:', totalPayments);
+    
+    // Query payments by either merchant ObjectId OR merchantAddress
+    const payments = await Payment.find({
+      $or: [
+        { merchant: merchantId },
+        { merchantAddress: merchant.walletAddress }
+      ]
+    })
+    .populate('product')
+    .populate('merchant')
+    .sort({ createdAt: -1 }); // Most recent first
     
     console.log(`Found ${payments.length} payments for merchant ${merchantId}`);
+    
+    // Update any payments that have merchantAddress but no merchant reference
+    if (payments.length > 0) {
+      for (const payment of payments) {
+        if (!payment.merchant && payment.merchantAddress === merchant.walletAddress) {
+          payment.merchant = merchantId;
+          await payment.save();
+          console.log(`Updated payment ${payment._id} with merchant reference`);
+        }
+      }
+    }
+    
+    // Log sample payment
+    if (payments.length > 0) {
+      console.log('Sample payment:', JSON.stringify(payments[0], null, 2));
+    } else {
+      // Log all payments in the system for debugging
+      const allPayments = await Payment.find({}).select('merchant merchantAddress');
+      console.log('All payments in system:', JSON.stringify(allPayments, null, 2));
+    }
     
     res.status(200).json(payments);
   } catch (error) {

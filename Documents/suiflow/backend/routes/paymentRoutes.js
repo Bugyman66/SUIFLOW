@@ -10,12 +10,23 @@ router.get('/test', (req, res) => {
   res.json({ message: 'Payment routes are working!' });
 });
 
+// Get all payments for authenticated merchant
+router.get('/merchant/payments', authenticateToken, getAllPayments);
+
 // Database test route
 router.get('/db-test', async (req, res) => {
   try {
     const Payment = (await import('../models/Payment.js')).default;
     const count = await Payment.countDocuments();
-    const recentPayments = await Payment.find({}).sort({ createdAt: -1 }).limit(5).select('_id status createdAt');
+    // Get more details about the payments to debug the merchant association
+    const recentPayments = await Payment.find({})
+      .populate('merchant')
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('_id status createdAt merchant merchantAddress');
+    
+    // Log the full payment details to see what's stored
+    console.log('Recent payments:', JSON.stringify(recentPayments, null, 2));
     
     res.json({ 
       message: 'Database connection working',

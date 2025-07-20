@@ -17,6 +17,8 @@ export const authenticateToken = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log('- Token decoded successfully');
     console.log('- Decoded merchantId:', decoded.merchantId);
+    console.log('- JWT_SECRET present:', !!process.env.JWT_SECRET);
+    console.log('- JWT_SECRET length:', process.env.JWT_SECRET?.length);
     
     // Verify merchant still exists and is active
     const merchant = await Merchant.findById(decoded.merchantId);
