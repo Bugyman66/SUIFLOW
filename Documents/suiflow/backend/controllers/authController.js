@@ -263,12 +263,17 @@ export const resendOTP = [
 // Get merchant profile (protected route)
 export const getProfile = async (req, res) => {
   try {
-    const merchant = await Merchant.findById(req.merchant.merchantId).select('-password');
+    // req.merchant is now the actual merchant object from the database
+    const merchant = req.merchant;
+    
     if (!merchant) {
       return res.status(404).json({ message: 'Merchant not found' });
     }
 
-    res.status(200).json({ merchant });
+    // Return merchant data without password
+    const { password, ...merchantData } = merchant.toObject();
+    
+    res.status(200).json({ merchant: merchantData });
   } catch (error) {
     console.error('Error fetching profile:', error);
     res.status(500).json({ message: 'Error fetching profile', error: error.message });

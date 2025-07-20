@@ -66,18 +66,65 @@ const createPaymentLink = async (req, res) => {
 const verifyPayment = async (req, res) => {
     try {
         const { paymentId, txnHash, customerWallet } = req.body;
-        const payment = await Payment.findById(paymentId).populate('merchant');
-        if (!payment) return res.status(404).json({ message: 'Payment not found' });
+        const paymentIdFromUrl = req.params.id;
+        
+        console.log('Verification request received:');
+        console.log('- Payment ID from URL params:', paymentIdFromUrl);
+        console.log('- Payment ID from body:', paymentId);
+        console.log('- Transaction Hash:', txnHash);
+        console.log('- Customer Wallet:', customerWallet);
+        
+        // Use the ID from URL params if body doesn't have it
+        const idToLookup = paymentIdFromUrl || paymentId;
+        console.log('- ID to lookup:', idToLookup);
+        
+        const payment = await Payment.findById(idToLookup).populate('merchant');
+        
+        if (!payment) {
+            console.error(`Payment not found with ID: ${idToLookup}`);
+            console.log('Available payment IDs in database:');
+            const allPayments = await Payment.find({}).select('_id product merchant status createdAt');
+            console.log(allPayments.map(p => ({ id: p._id, product: p.product, merchant: p.merchant, status: p.status, createdAt: p.createdAt })));
+            return res.status(404).json({ message: 'Payment not found' });
+        }
+        
+        console.log('Payment found:', {
+            id: payment._id,
+            product: payment.product,
+            merchant: payment.merchant,
+            amount: payment.amount,
+            status: payment.status
+        });
+        
+        // Get merchant address - either from populated merchant or direct field
+        let merchantAddress = payment.merchantAddress;
+        if (!merchantAddress && payment.merchant) {
+            merchantAddress = payment.merchant.walletAddress;
+        }
+        
+        if (!merchantAddress) {
+            console.error('No merchant address found for payment:', paymentId);
+            return res.status(400).json({ message: 'Payment has no merchant address' });
+        }
+        
+        console.log(`Verifying payment ${paymentId} with txn ${txnHash}`);
+        console.log(`Expected amount: ${payment.amount} SUI`);
+        console.log(`Merchant address: ${merchantAddress}`);
+        
         // Call Sui verification service
-        const isValid = await verifySuiPayment(txnHash, payment.amount, payment.merchant.walletAddress);
+        const isValid = await verifySuiPayment(txnHash, payment.amount, merchantAddress);
+        
         if (isValid) {
             payment.status = 'paid';
             payment.txnHash = txnHash;
             payment.customerWallet = customerWallet;
             payment.paidAt = new Date();
             await payment.save();
-            // Trigger merchant webhook
-            if (payment.merchant.webhookUrl) {
+            
+            console.log(`Payment ${paymentId} verified successfully`);
+            
+            // Trigger merchant webhook if merchant has webhook URL
+            if (payment.merchant && payment.merchant.webhookUrl) {
                 await triggerWebhook(payment.merchant.webhookUrl, {
                     event: 'payment.success',
                     amount: payment.amount,
@@ -88,6 +135,7 @@ const verifyPayment = async (req, res) => {
                     createdAt: payment.createdAt
                 });
             }
+            
             // Redirect if product has redirectURL
             if (payment.product) {
                 const Product = (await import('../models/Product.js')).default;
@@ -96,11 +144,14 @@ const verifyPayment = async (req, res) => {
                     return res.redirect(`${product.redirectURL}?paymentId=${payment._id}`);
                 }
             }
+            
             res.status(200).json({ message: 'Payment verified', payment });
         } else {
+            console.log(`Payment verification failed for payment ${paymentId}`);
             res.status(400).json({ message: 'Payment verification failed' });
         }
     } catch (error) {
+        console.error('Error verifying payment:', error);
         res.status(500).json({ message: 'Error verifying payment', error: error.message });
     }
 };
@@ -118,9 +169,24 @@ const webhookHandler = async (req, res) => {
 
 const getAllPayments = async (req, res) => {
   try {
-    const payments = await Payment.find().populate('product').populate('merchant');
+    // Get the authenticated merchant from the request (set by auth middleware)
+    const merchantId = req.merchant?._id;
+    
+    if (!merchantId) {
+      return res.status(401).json({ message: 'Merchant not authenticated' });
+    }
+    
+    // Filter payments by merchant
+    const payments = await Payment.find({ merchant: merchantId })
+      .populate('product')
+      .populate('merchant')
+      .sort({ createdAt: -1 }); // Most recent first
+    
+    console.log(`Found ${payments.length} payments for merchant ${merchantId}`);
+    
     res.status(200).json(payments);
   } catch (error) {
+    console.error('Error fetching payments:', error);
     res.status(500).json({ message: 'Error fetching payments', error: error.message });
   }
 };
@@ -153,6 +219,51 @@ const createCustomPaymentLink = async (req, res) => {
     }
 };
 
+// Add this new controller for creating payments during checkout
+const createPayment = async (req, res) => {
+    try {
+        const { productId } = req.body;
+        const merchantId = req.merchant?._id;
+        
+        if (!productId) {
+            return res.status(400).json({ message: 'Product ID is required' });
+        }
+        
+        // Find the product
+        const Product = (await import('../models/Product.js')).default;
+        const product = await Product.findById(productId);
+        
+        if (!product) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+        
+        // Always set merchant to authenticated merchant's _id, or fallback to product.merchant
+        const payment = new Payment({
+            product: product._id,
+            merchant: merchantId || product.merchant, // <--- THIS IS THE FIX
+            amount: product.priceInSui,
+            merchantAddress: product.merchantAddress,
+            status: 'pending',
+            description: product.description || '',
+            reference: '',
+        });
+        
+        await payment.save();
+        
+        console.log(`Created payment ${payment._id} for product ${productId} by merchant ${merchantId || product.merchant}`);
+        
+        res.status(201).json({ 
+            paymentId: payment._id,
+            amount: payment.amount,
+            status: payment.status
+        });
+        
+    } catch (error) {
+        console.error('Error creating payment:', error);
+        res.status(500).json({ message: 'Error creating payment', error: error.message });
+    }
+};
+
 // Validation middleware for payment creation
 export const validateCreatePayment = [
   body('productId').optional().isString(),
@@ -169,4 +280,4 @@ export const validateCreatePayment = [
   }
 ];
 
-export { processPayment, getPaymentStatus, createPaymentLink, verifyPayment, webhookHandler, getAllPayments, createCustomPaymentLink };
+export { processPayment, getPaymentStatus, createPaymentLink, verifyPayment, webhookHandler, getAllPayments, createCustomPaymentLink, createPayment };

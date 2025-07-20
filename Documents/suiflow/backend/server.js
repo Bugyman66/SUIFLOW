@@ -9,7 +9,8 @@ import debugRoutes from './routes/debugRoutes.js';
 
 const app = express();
 
-app.use(cors());
+app.use(cors({ origin: '*', credentials: true }));
+app.options('*', cors());
 app.use(express.json());
 
 // Add logging middleware

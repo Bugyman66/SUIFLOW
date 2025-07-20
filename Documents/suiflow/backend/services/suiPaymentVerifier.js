@@ -41,11 +41,24 @@ export const verifySuiPayment = async (txnHash, expectedAmountSui, merchantAddre
     console.log(`Verifying transaction: ${txnHash}`);
     console.log(`Expected amount: ${expectedAmountSui} SUI`);
     console.log(`Expected recipient: ${merchantAddress}`);
+    console.log(`Using RPC URL: ${process.env.SUI_RPC_URL}`);
+    
+    // Test RPC connection first
+    try {
+      await suiClient.getRpcApiVersion();
+      console.log('SUI RPC connection successful');
+    } catch (rpcError) {
+      console.error('SUI RPC connection failed:', rpcError);
+      return false;
+    }
     
     const txn = await suiClient.getTransactionBlock({ 
       digest: txnHash,
       options: { showBalanceChanges: true, showEffects: true }
     });
+    
+    console.log('Transaction retrieved:', txn ? 'Yes' : 'No');
+    console.log('Transaction effects:', txn?.effects?.status);
     
     // Check if transaction exists and was successful
     if (!txn || txn.effects.status.status !== 'success') {
@@ -58,16 +71,49 @@ export const verifySuiPayment = async (txnHash, expectedAmountSui, merchantAddre
     
     // Check balance changes to verify the payment
     const balanceChanges = txn.balanceChanges || [];
+    console.log('Balance changes found:', balanceChanges.length);
     
     // Look for a positive balance change for the merchant address
+    console.log('Looking for merchant address:', merchantAddress);
+    console.log('Balance changes:', balanceChanges.map(bc => ({
+      owner: bc.owner,
+      ownerType: typeof bc.owner,
+      coinType: bc.coinType,
+      amount: bc.amount
+    })));
+    
     const merchantBalanceChange = balanceChanges.find(change => 
-      change.owner === merchantAddress && 
+      (change.owner?.AddressOwner === merchantAddress || change.owner === merchantAddress) && 
       change.coinType === '0x2::sui::SUI' &&
       parseInt(change.amount) > 0
     );
     
     if (!merchantBalanceChange) {
       console.log('No positive balance change found for merchant');
+      console.log('Available balance changes:', balanceChanges.map(bc => ({
+        owner: bc.owner,
+        coinType: bc.coinType,
+        amount: bc.amount
+      })));
+      
+      // Fallback: Check transaction effects for transfers
+      console.log('Trying fallback verification using transaction effects...');
+      const effects = txn.effects;
+      
+      if (effects && effects.events) {
+        const transferEvents = effects.events.filter(event => 
+          event.type === 'transfer' && 
+          event.recipient && 
+          (event.recipient.AddressOwner === merchantAddress || event.recipient === merchantAddress)
+        );
+        
+        if (transferEvents.length > 0) {
+          console.log('Found transfer events to merchant:', transferEvents.length);
+          console.log('Payment verification successful (via fallback)');
+          return true;
+        }
+      }
+      
       return false;
     }
     
