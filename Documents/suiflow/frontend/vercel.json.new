@@ -1,14 +1,8 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "outputDirectory": "dist",
   "routes": [
     {
       "handle": "filesystem"
@@ -23,14 +17,21 @@
     {
       "src": "/(.*)\\.js",
       "headers": {
-        "content-type": "application/javascript"
+        "content-type": "application/javascript; charset=utf-8"
+      },
+      "continue": true
+    },
+    {
+      "src": "/(.*)\\.mjs",
+      "headers": {
+        "content-type": "application/javascript; charset=utf-8"
       },
       "continue": true
     },
     {
       "src": "/(.*)\\.css",
       "headers": {
-        "content-type": "text/css"
+        "content-type": "text/css; charset=utf-8"
       },
       "continue": true
     },
@@ -40,8 +41,6 @@
     }
   ],
   "env": {
-    "VITE_API_URL": "https://suiflow.onrender.com/api",
-    "VITE_FRONTEND_BASE_URL": "https://suiflow-blush.vercel.app/"
-
+    "VITE_API_URL": "https://suiflow.onrender.com/api"
   }
 }
