@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+import { apiConfig, buildApiUrl } from '../config/api';
 
 class AuthService {
   // Send OTP to email for registration
