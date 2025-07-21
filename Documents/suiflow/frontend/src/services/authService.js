@@ -1,11 +1,9 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+import { config } from './config';
 
 class AuthService {
   constructor() {
-    if (!API_BASE_URL) {
-      console.warn('VITE_API_URL is not defined in environment variables');
-    }
-    console.log('AuthService initialized with API_BASE_URL:', API_BASE_URL);
+    this.API_BASE_URL = config.getApiUrl();
+    console.log('AuthService initialized with API_BASE_URL:', this.API_BASE_URL);
   }
 
   async login(email, password) {
@@ -14,9 +12,9 @@ class AuthService {
         throw new Error('API URL is not configured');
       }
 
-      console.log('Attempting login to:', `${API_BASE_URL}/auth/login`);
+      console.log('Attempting login to:', `${this.API_BASE_URL}/auth/login`);
       
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(`${this.API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -55,7 +53,7 @@ class AuthService {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+      const response = await fetch(`${this.API_BASE_URL}/auth/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
