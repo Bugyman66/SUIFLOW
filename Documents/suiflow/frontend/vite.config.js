@@ -22,6 +22,10 @@ export default defineConfig({
     },
   },
   define: {
+    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false',
+    'process.env': {}
+  },
+  define: {
     'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL),
   },
   resolve: {
